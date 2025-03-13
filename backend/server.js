@@ -1,34 +1,52 @@
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
+const sqlite3 = require('sqlite3');
+const bodyParser = require('body-parser');
+const cors = require('cors');
+
 const app = express();
-const PORT = 3000;
+const db = new sqlite3.Database('./tasks.db');
 
-const db = new sqlite3.Database('restaurant.db');
+app.use(cors());
+app.use(bodyParser.json());
 
-db.serialize(() => {
-    db.run(`CREATE TABLE IF NOT EXISTS menu (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT UNIQUE,
-        description TEXT
-    )`);
+// Datenbank-Tabelle erstellen, falls nicht vorhanden
+db.run('CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, completed BOOLEAN DEFAULT 0)');
 
-    const dishes = [
-        ['sushi', 'Ein leckerer Mix aus Sushi.'],
-        ['pizza', 'Eine köstliche Pizza.'],
-        ['taco', 'Ein herzhafter mexikanischer Mix.']
-    ];
+// Testroute
+app.get('/', (req, res) => {
+    res.send('Server läuft!');
+});
 
-    dishes.forEach(([name, description]) => {
-        db.run('INSERT OR IGNORE INTO menu (name, description) VALUES (?, ?)', [name, description]);
+// Alle Tasks abrufen
+app.get('/liste_abrufen', (req, res) => {
+    db.all('SELECT * FROM tasks', function (err, rows) {
+        if (err) {
+            res.status(500).json({ error: err.message });
+        } else {
+            res.json(rows);
+        }
     });
 });
 
-app.get('/:dish', (req, res) => {
-    db.get('SELECT description FROM menu WHERE name = ?', [req.params.dish], (_, row) => 
-        res.send(row ? row.description : 'Gericht nicht gefunden.')
-    );
+// Neues Task hinzufügen
+app.post('/add', (req, res) => {
+    db.run('INSERT INTO tasks (title) VALUES (?)', [req.body.title], function () {
+        res.json({ id: this.lastID, title: req.body.title, completed: 0 });
+    });
 });
 
-app.listen(PORT, () => {
-    console.log(`Server läuft auf http://localhost:${PORT}`);
+// Task löschen
+app.delete('/delete/:id', (req, res) => {
+    db.run('DELETE FROM tasks WHERE id = ?', [req.params.id], function (err) {
+        if (err) {
+            res.status(500).json({ error: err.message });
+        } else {
+            res.json({ success: true });
+        }
+    });
+});
+
+// Server starten
+app.listen(3050, () => {
+    console.log("Server läuft auf http://localhost:3050");
 });
