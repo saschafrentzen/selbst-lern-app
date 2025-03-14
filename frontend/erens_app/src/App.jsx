@@ -4,49 +4,81 @@ import './App.css';
 function App() {
   const [tasks, setTasks] = useState([]);
   const [title, setTitle] = useState("");
+  const [error, setError] = useState("");
 
-  // Aufgaben von der API abrufen
-  useEffect(() => {
+  // Aufgaben abrufen
+  const fetchTasks = () => {
     fetch("http://localhost:3050/liste_abrufen")
       .then((res) => res.json())
       .then(setTasks)
-      .catch((err) => console.error("Fehler beim Laden:", err));
+      .catch(() => setError("Fehler beim Laden der Aufgaben"));
+  };
+
+  useEffect(() => {
+    fetchTasks();
   }, []);
 
-  // Neues Item hinzufügen
+  // Neues Task hinzufügen
   const itemHinzufuegen = () => {
+    if (!title.trim()) {
+      setError("Bitte einen Titel eingeben!");
+      return;
+    }
+
     fetch("http://localhost:3050/add", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title }),
     })
-    .then(res => res.json())
-    .then((newTask) => {
-      setTasks([...tasks, newTask]);  // UI aktualisieren
-      setTitle("");  // Eingabefeld leeren
-    })
-    .catch((err) => console.error("Fehler beim Hinzufügen:", err));
+      .then(res => res.json())
+      .then(() => {
+        setTitle(""); 
+        fetchTasks(); // Neu laden
+      })
+      .catch(() => setError("Fehler beim Hinzufügen"));
   };
 
-  // Item löschen und UI aktualisieren
+  // Task löschen
   const itemLöschen = (id) => {
     fetch(`http://localhost:3050/delete/${id}`, { method: "DELETE" })
-      .then(() => {
-        setTasks(tasks.filter(task => task.id !== id)); // UI aktualisieren
-      })
-      .catch((err) => console.error("Fehler beim Löschen:", err));
+      .then(() => fetchTasks()) // Neu laden
+      .catch(() => setError("Fehler beim Löschen"));
+  };
+
+  // Checkbox-Status ändern
+  const statusÄndern = (id, completed) => {
+    fetch(`http://localhost:3050/update/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ completed }),
+    })
+    .then(() => fetchTasks()) // Neu laden
+    .catch(() => setError("Fehler beim Aktualisieren"));
   };
 
   return (
     <>
       <h1>To-Do Liste</h1>
-      <input value={title} onChange={(e) => setTitle(e.target.value)} />
+      {error && <p style={{ color: "red" }}>{error}</p>}
+
+      <input 
+        value={title} 
+        onChange={(e) => {
+          setTitle(e.target.value);
+          setError(""); 
+        }} 
+      />
       <button onClick={itemHinzufuegen}>Hinzufügen</button>
 
       <ul>
-        {tasks.map(({ id, title }) => (
-          <li key={id}>
-            <input type="checkbox" /> {title}
+        {tasks.map(({ id, title, completed }) => (
+          <li key={id} style={{ textDecoration: completed ? "line-through" : "none" }}>
+            <input 
+              type="checkbox" 
+              checked={completed} 
+              onChange={() => statusÄndern(id, !completed)} 
+            />
+            {title}
             <button onClick={() => itemLöschen(id)}>Löschen</button>
           </li>
         ))}
@@ -56,4 +88,3 @@ function App() {
 }
 
 export default App;
-

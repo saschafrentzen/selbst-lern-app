@@ -33,7 +33,7 @@ app.get('/', (req, res) => {
 // Alle Tasks abrufen
 app.get('/liste_abrufen', async (req, res) => {
     try {
-        const { rows } = await pool.query('SELECT * FROM tasks');
+        const { rows } = await pool.query('SELECT * FROM tasks ORDER BY id DESC');
         res.json(rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -46,7 +46,24 @@ app.post('/add', async (req, res) => {
     if (!title) return res.status(400).json({ error: "Title is required" });
 
     try {
-        const { rows } = await pool.query('INSERT INTO tasks (title) VALUES ($1) RETURNING *', [title]);
+        const { rows } = await pool.query(
+            'INSERT INTO tasks (title) VALUES ($1) RETURNING *', 
+            [title]
+        );
+        res.json(rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Task-Status ändern (Checkbox)
+app.patch('/update/:id', async (req, res) => {
+    const { completed } = req.body;
+    try {
+        const { rows } = await pool.query(
+            'UPDATE tasks SET completed = $1 WHERE id = $2 RETURNING *',
+            [completed, req.params.id]
+        );
         res.json(rows[0]);
     } catch (err) {
         res.status(500).json({ error: err.message });
